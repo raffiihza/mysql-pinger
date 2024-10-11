@@ -1,0 +1,66 @@
+name: Ping MySQL Databases
+
+on:
+  schedule:
+    - cron: "0 */12 * * *"  # Every 12 hours
+  workflow_dispatch:
+
+jobs:
+  ping-databases:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install MySQL client
+        run: |
+          python -m pip install mysql-connector-python
+
+      - name: Ping databases
+        run: |
+          import mysql.connector
+          from urllib.parse import urlparse
+          import sys
+
+          # Read databases from the file
+          try:
+              with open('databases.txt', 'r') as file:
+                  databases = file.readlines()
+          except FileNotFoundError:
+              print("databases.txt not found")
+              sys.exit(1)
+
+          for i, db_url in enumerate(databases, start=1):
+              db_url = db_url.strip()
+              if not db_url:
+                  continue
+
+              try:
+                  # Parse the database URL
+                  parsed_url = urlparse(db_url)
+                  user = parsed_url.username
+                  password = parsed_url.password
+                  host = parsed_url.hostname
+                  port = parsed_url.port or 3306
+                  database = parsed_url.path.lstrip('/')
+
+                  # Connect to the database
+                  connection = mysql.connector.connect(
+                      user=user,
+                      password=password,
+                      host=host,
+                      port=port,
+                      database=database
+                  )
+                  connection.close()
+                  print(f"Database no-{i} successfully pinged")
+
+              except Exception as e:
+                  print(f"Database no-{i} can't be reached: {e}")
+                  continue
