@@ -19,11 +19,17 @@ jobs:
     - name: Ping MySQL Databases
       run: |
         i=1
-        while IFS= read -r db_url; do
-          if mysql --connect-timeout=5 --ssl-mode=REQUIRED "$db_url" -e "SELECT 1;" >/dev/null 2>&1; then
+        DB_URLS=$(cat databases.txt)
+        for DB_URL in $DB_URLS; do
+          USER=$(echo "$DB_URL" | sed -E 's|^mysql://([^:]+):([^@]+)@.*$|\1|')
+          PASSWORD=$(echo "$DB_URL" | sed -E 's|^mysql://[^:]+:([^@]+)@.*$|\1|')
+          HOST=$(echo "$DB_URL" | sed -E 's|^mysql://[^@]+@([^:]+):.*$|\1|')
+          PORT=$(echo "$DB_URL" | sed -E 's|^mysql://[^@]+@[^:]+:([^/]+)/.*$|\1|')
+          DATABASE=$(echo "$DB_URL" | sed -E 's|^mysql://[^@]+@[^:]+:[^/]+/(.*)\?.*$|\1|')
+          if mysql -u "$USER" -p"$PASSWORD" -h "$HOST" -P "$PORT" -D "$DATABASE" -e "SELECT 1;"; then
             echo "Database no-$i successfully pinged"
           else
             echo "Database no-$i can't be reached"
           fi
           ((i++))
-        done < databases.txt
+        done
